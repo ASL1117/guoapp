@@ -1,0 +1,57 @@
+name: Build zhenguojian unsigned iOS
+
+on:
+  push:
+    branches: [codex/build-zhenguojian-ios]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      GOPROXY: https://proxy.golang.org,direct
+      GOSUMDB: sum.golang.org
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: native/go.mod
+          cache-dependency-path: native/go.sum
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.4'
+          channel: stable
+          cache: true
+      - run: python3 scripts/build_ios.py --all-sources
+      - name: Verify IPA package
+        run: |
+          python3 - <<'PY'
+          import plistlib
+          import zipfile
+          from pathlib import Path
+
+          ipa = next(Path('dist/ios').glob('zhenguojian-*-ios-unsigned.ipa'))
+          with zipfile.ZipFile(ipa) as package:
+              if package.testzip() is not None:
+                  raise SystemExit('IPA archive is corrupted')
+              info = plistlib.loads(package.read('Payload/Runner.app/Info.plist'))
+              if info.get('CFBundleDisplayName') != '真果鉴':
+                  raise SystemExit('IPA contains the wrong app edition')
+              package.getinfo('Payload/Runner.app/' + info['CFBundleExecutable'])
+          print('Verified:', ipa)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zhenguojian-ios-unsigned
+          path: |
+            dist/ios/zhenguojian-*-ios-unsigned.ipa
+            dist/ios/zhenguojian-*-ios-unsigned-app.zip
+            dist/ios/SHA256SUMS.txt
+          if-no-files-found: error
