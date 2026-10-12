@@ -29,6 +29,11 @@ jobs:
           flutter-version: '3.47.4'
           channel: stable
           cache: true
+      - name: Complete dependency lockfile
+        run: |
+          flutter pub get
+          mkdir -p dist/ios
+          cp pubspec.lock dist/ios/pubspec.lock
       - run: python3 scripts/build_ios.py --all-sources
       - name: Verify IPA package
         run: |
@@ -54,4 +59,5 @@ jobs:
             dist/ios/zhenguojian-*-ios-unsigned.ipa
             dist/ios/zhenguojian-*-ios-unsigned-app.zip
             dist/ios/SHA256SUMS.txt
+            dist/ios/pubspec.lock
           if-no-files-found: error
